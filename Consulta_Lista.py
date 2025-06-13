@@ -4,13 +4,13 @@ import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
 
 
-st.set_page_config(page_title="Consulta de Motoristas - Shopee", layout="centered")
+st.set_page_config(page_title="🚗 Consulta de Motoristas - Shopee", layout="centered")
 
 col1, col2 = st.columns([1, 8])
 with col1:
     st.image("unnamed.png", width=150)
 with col2:
-    st.markdown("<h1 style='color:#f26c2d;'>Consulta de Motoristas - Shopee</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color:#f26c2d;'>🚗 Consulta de Motoristas - Shopee</h1>", unsafe_allow_html=True)
 
 st.markdown("""
     <style>
