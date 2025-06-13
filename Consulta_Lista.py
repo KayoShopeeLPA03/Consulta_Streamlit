@@ -4,7 +4,7 @@ import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
 
 
-st.set_page_config(page_title="Consulta de Motoristas - Shopee", layout="wide")
+st.set_page_config(page_title="Consulta de Motoristas - Shopee", layout="centered")
 
 col1, col2 = st.columns([1, 8])
 with col1:
