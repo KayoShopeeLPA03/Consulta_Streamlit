@@ -157,4 +157,4 @@ except Exception as e:
     st.error(f"Erro ao acessar a planilha: {e}") 
 
 st.markdown("---")
-st.caption("Desenvolvido por Kayo Soares - LPA 03")
+st.caption("**Desenvolvido por Kayo Soares - LPA 03**") 
