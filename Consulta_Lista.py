@@ -54,7 +54,7 @@ try:
     dados = aba.get_all_values()[2:]
     df = pd.DataFrame(dados[1:], columns=dados[0])
 
-    colunas_desejadas = ["ID Driver", "NOME", "Placa", "Cidades", "Bairros", "Onda", "Gaiola"]
+    colunas_desejadas = ["ID Driver", "NOME","Data Exp","Placa", "Cidades", "Bairros", "Onda", "Gaiola"]
     df_filtrado = df[colunas_desejadas]
 
     for col in colunas_desejadas:
