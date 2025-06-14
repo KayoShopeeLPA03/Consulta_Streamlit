@@ -53,17 +53,20 @@ try:
     dados = aba.get_all_values()[2:]
     df = pd.DataFrame(dados[1:], columns=dados[0])
 
-    colunas_desejadas = ["NOME", "ID Driver", "Placa", "Data Exp.", "Cidades", "Bairros", "Onda", "Gaiola"]
+    # Colunas necessárias para filtro + exibição
+    colunas_para_filtro = ["NOME", "ID Driver", "Placa"]
+    colunas_para_exibir = ["NOME", "Data Exp.", "Cidades", "Bairros", "Onda", "Gaiola"]
+    colunas_necessarias = colunas_para_filtro + [col for col in colunas_para_exibir if col not in colunas_para_filtro]
 
-    # Verifica se todas as colunas existem na planilha
-    for col in colunas_desejadas:
+    # Garantir que todas as colunas existem
+    for col in colunas_necessarias:
         if col not in df.columns:
             st.error(f"Coluna ausente na planilha: {col}")
             st.stop()
 
-    df_filtrado = df[colunas_desejadas]
+    df_filtrado = df[colunas_necessarias]
 
-    for col in colunas_desejadas:
+    for col in colunas_necessarias:
         df_filtrado[col] = df_filtrado[col].fillna("").astype(str)
 
     if "nome_busca" not in st.session_state:
@@ -107,8 +110,9 @@ try:
 
         resultados = resultados.sort_values(by=["Onda", "NOME"], ascending=[True, True])
 
-        # Remover a coluna "Placa" antes da exibição
-        resultados = resultados.drop(columns=["Placa"])
+        # Remove colunas que serão ocultadas da visualização
+        colunas_ocultas = ["Placa", "ID Driver"]
+        resultados = resultados.drop(columns=colunas_ocultas)
 
         def cor_onda(row):
             onda = row["Onda"].strip().lower()
