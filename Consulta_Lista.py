@@ -3,11 +3,11 @@ import gspread
 import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
 
-
 st.set_page_config(
     page_title="Consulta de Motoristas - Shopee", 
     page_icon="🚗",
-    layout="centered")
+    layout="centered"
+)
 
 col1, col2 = st.columns([1, 8])
 with col1:
@@ -34,7 +34,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
 file_name = "teste-motoristas-4f5250c96818.json"
 Scopes = [
     "https://spreadsheets.google.com/feeds",
@@ -54,7 +53,14 @@ try:
     dados = aba.get_all_values()[2:]
     df = pd.DataFrame(dados[1:], columns=dados[0])
 
-    colunas_desejadas = ["NOME","Data Exp.","Cidades", "Bairros", "Onda", "Gaiola"]
+    colunas_desejadas = ["NOME", "ID Driver", "Placa", "Data Exp.", "Cidades", "Bairros", "Onda", "Gaiola"]
+
+    # Verifica se todas as colunas existem na planilha
+    for col in colunas_desejadas:
+        if col not in df.columns:
+            st.error(f"Coluna ausente na planilha: {col}")
+            st.stop()
+
     df_filtrado = df[colunas_desejadas]
 
     for col in colunas_desejadas:
@@ -101,6 +107,9 @@ try:
 
         resultados = resultados.sort_values(by=["Onda", "NOME"], ascending=[True, True])
 
+        # Remover a coluna "Placa" antes da exibição
+        resultados = resultados.drop(columns=["Placa"])
+
         def cor_onda(row):
             onda = row["Onda"].strip().lower()
             cor = ""
@@ -122,7 +131,7 @@ try:
         styled_df = (
             resultados.style
             .apply(cor_onda, axis=1)
-            .applymap(estilizar_colunas, subset=["Gaiola", "Cidades", "Bairros", "Placa"])
+            .applymap(estilizar_colunas, subset=["Gaiola", "Cidades", "Bairros"])
             .set_table_styles([
                 {'selector': 'th', 'props': [('background-color', '#000000'), ('color', 'white'), ('font-weight', 'bold'), ('text-align', 'center')]},
                 {'selector': 'td', 'props': [('text-align', 'center'), ('padding', '8px')]}
@@ -157,4 +166,4 @@ except Exception as e:
     st.error(f"Erro ao acessar a planilha: {e}") 
 
 st.markdown("---")
-st.caption("**Desenvolvido por Kayo Soares - LPA 03**") 
+st.caption("**Desenvolvido por Kayo Soares - LPA 03**")
