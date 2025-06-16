@@ -53,7 +53,7 @@ try:
     dados = aba.get_all_values()[2:]
     df = pd.DataFrame(dados[1:], columns=dados[0])
 
-    # Colunas necessárias para filtro + exibição
+    # Colunas necessárias
     colunas_para_filtro = ["NOME", "ID Driver", "Placa"]
     colunas_para_exibir = ["NOME", "Data Exp.", "Cidades", "Bairros", "Onda", "Gaiola"]
     colunas_necessarias = colunas_para_filtro + [col for col in colunas_para_exibir if col not in colunas_para_filtro]
@@ -63,6 +63,14 @@ try:
         if col not in df.columns:
             st.error(f"Coluna ausente na planilha: {col}")
             st.stop()
+
+    # 🔒 VERIFICAÇÃO: impede o app de abrir se houver campos obrigatórios vazios
+    colunas_obrigatorias = ["NOME", "Cidades", "Bairros", "Onda", "Gaiola"]
+    df_teste = df[colunas_obrigatorias].replace("", None)
+
+    if df_teste.isnull().any().any():
+        st.warning("🚧 A planilha ainda está sendo preenchida. Volte mais tarde.")
+        st.stop()
 
     df_filtrado = df[colunas_necessarias]
 
@@ -110,7 +118,7 @@ try:
 
         resultados = resultados.sort_values(by=["Onda", "NOME"], ascending=[True, True])
 
-        # Remove colunas que serão ocultadas da visualização
+        # Oculta colunas da visualização
         colunas_ocultas = ["Placa", "ID Driver"]
         resultados = resultados.drop(columns=colunas_ocultas)
 
