@@ -83,11 +83,14 @@ try:
         st.session_state.id_busca = ""
     if "placa_busca" not in st.session_state:
         st.session_state.placa_busca = ""
+    if "liberar_consulta" not in st.session_state:
+        st.session_state.liberar_consulta = False
 
     if st.button("🧹 Limpar filtros"):
         st.session_state.nome_busca = ""
         st.session_state.id_busca = ""
         st.session_state.placa_busca = ""
+        st.session_state.liberar_consulta = False
         st.rerun()
 
     nome_busca = st.text_input("🔎 Buscar por NOME do motorista:", value=st.session_state.nome_busca).strip().upper()
@@ -98,6 +101,15 @@ try:
 
     placa_busca = st.text_input("🚗 Buscar por PLACA:", value=st.session_state.placa_busca).strip().upper()
     st.session_state.placa_busca = placa_busca
+
+    # Botão para liberar a consulta
+    if st.button("🔓 Liberar Consulta", type="primary"):
+        st.session_state.liberar_consulta = True
+        st.rerun()
+
+    if not st.session_state.liberar_consulta:
+        st.warning("🔒 Clique no botão 'Liberar Consulta' para visualizar os resultados")
+        st.stop()
 
     resultados = df_filtrado
 
