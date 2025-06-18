@@ -3,18 +3,21 @@ import gspread
 import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
 
+# Configuração da página
 st.set_page_config(
     page_title="Consulta de Motoristas - Shopee", 
     page_icon="🚗",
     layout="centered"
 )
 
+# Cabeçalho com logo e título
 col1, col2 = st.columns([1, 8])
 with col1:
     st.image("unnamed.png", width=150)
 with col2:
     st.markdown("<h1 style='color:#f26c2d;'>Consulta de Motoristas - Shopee</h1>", unsafe_allow_html=True)
 
+# Estilos CSS personalizados
 st.markdown("""
     <style>
         body, .stApp {
@@ -24,6 +27,7 @@ st.markdown("""
         .stTextInput > div > div > input {
             background-color: #333;
             color: white;
+            border: 1px solid #f26c2d;
         }
         .stDataFrame {
             background-color: #2c2c2c;
@@ -31,9 +35,18 @@ st.markdown("""
         table {
             background-color: #2c2c2c;
         }
+        .stButton>button {
+            border: 1px solid #f26c2d;
+            color: white;
+        }
+        .stButton>button:hover {
+            border: 1px solid #f26c2d;
+            background-color: #3a3a3a;
+        }
     </style>
 """, unsafe_allow_html=True)
 
+# Conexão com o Google Sheets
 file_name = "teste-motoristas-4f5250c96818.json"
 Scopes = [
     "https://spreadsheets.google.com/feeds",
@@ -41,15 +54,18 @@ Scopes = [
 ]
 
 try:
+    # Autenticação
     credencial = ServiceAccountCredentials.from_json_keyfile_name(
         filename=file_name,
         scopes=Scopes
     )
     gc = gspread.authorize(credencial)
 
+    # Acessar planilha
     planilha = gc.open("PROGRAMAÇÃO FROTA - Belem - LPA-02")
     aba = planilha.worksheet("Programação")
 
+    # Obter dados
     dados = aba.get_all_values()[2:]
     df = pd.DataFrame(dados[1:], columns=dados[0])
 
@@ -58,13 +74,13 @@ try:
     colunas_para_exibir = ["NOME", "Data Exp.", "Cidades", "Bairros", "Onda", "Gaiola"]
     colunas_necessarias = colunas_para_filtro + [col for col in colunas_para_exibir if col not in colunas_para_filtro]
 
-    # Garantir que todas as colunas existem
+    # Verificar colunas existentes
     for col in colunas_necessarias:
         if col not in df.columns:
             st.error(f"Coluna ausente na planilha: {col}")
             st.stop()
 
-    # 🔒 VERIFICAÇÃO: impede o app de abrir se houver campos obrigatórios vazios
+    # Verificar dados obrigatórios
     colunas_obrigatorias = ["NOME", "Cidades", "Bairros", "Onda", "Gaiola"]
     df_teste = df[colunas_obrigatorias].replace("", None)
 
@@ -72,11 +88,12 @@ try:
         st.warning("🚧 A planilha ainda está sendo preenchida. Volte mais tarde.")
         st.stop()
 
+    # Preparar dados
     df_filtrado = df[colunas_necessarias]
-
     for col in colunas_necessarias:
         df_filtrado[col] = df_filtrado[col].fillna("").astype(str)
 
+    # Gerenciamento de estado
     if "nome_busca" not in st.session_state:
         st.session_state.nome_busca = ""
     if "id_busca" not in st.session_state:
@@ -86,6 +103,7 @@ try:
     if "liberar_consulta" not in st.session_state:
         st.session_state.liberar_consulta = False
 
+    # Limpar filtros
     if st.button("🧹 Limpar filtros"):
         st.session_state.nome_busca = ""
         st.session_state.id_busca = ""
@@ -93,6 +111,7 @@ try:
         st.session_state.liberar_consulta = False
         st.rerun()
 
+    # Campos de busca
     nome_busca = st.text_input("🔎 Buscar por NOME do motorista:", value=st.session_state.nome_busca).strip().upper()
     st.session_state.nome_busca = nome_busca
 
@@ -102,17 +121,29 @@ try:
     placa_busca = st.text_input("🚗 Buscar por PLACA:", value=st.session_state.placa_busca).strip().upper()
     st.session_state.placa_busca = placa_busca
 
-    # Botão para liberar a consulta
-    if st.button("🔓 Liberar Consulta", type="primary"):
-        st.session_state.liberar_consulta = True
+    # Botão toggle para liberar/bloquear
+    if st.session_state.liberar_consulta:
+        btn_label = "🔒 Bloquear Consulta"
+        btn_color = "#ff4b4b"  # Vermelho
+    else:
+        btn_label = "🔓 Liberar Consulta"
+        btn_color = "#f26c2d"  # Laranja Shopee
+
+    if st.button(btn_label, type="primary", 
+                help="Clique para mostrar/ocultar os resultados",
+                use_container_width=True):
+        st.session_state.liberar_consulta = not st.session_state.liberar_consulta
         st.rerun()
 
-    if not st.session_state.liberar_consulta:
-        st.warning("🔒 Clique no botão 'Liberar Consulta' para visualizar os resultados")
+    # Feedback visual do estado
+    if st.session_state.liberar_consulta:
+        st.success("🔓 Consulta liberada - Os resultados estão visíveis")
+    else:
+        st.warning("🔒 Consulta bloqueada - Clique no botão acima para liberar")
         st.stop()
 
-    resultados = df_filtrado
-
+    # Aplicar filtros
+    resultados = df_filtrado.copy()
     if nome_busca:
         resultados = resultados[resultados["NOME"].str.upper().str.contains(nome_busca)]
     if id_busca:
@@ -120,63 +151,51 @@ try:
     if placa_busca:
         resultados = resultados[resultados["Placa"].str.upper().str.contains(placa_busca)]
 
+    # Exibir resultados
     if not resultados.empty:
-        st.success(f"{len(resultados)} resultado(s) encontrado(s):")
+        st.success(f"✅ {len(resultados)} motorista(s) encontrado(s)")
 
+        # Verificar informações faltantes
         colunas_para_verificar = ["Placa", "Cidades", "Bairros", "Onda", "Gaiola"]
         faltando_info = resultados[colunas_para_verificar].isin(["", None]).any(axis=1).any()
         if faltando_info:
-            st.warning("⚠️ Algumas informações ainda estão sendo preenchidas. A lista está em construção.")
+            st.warning("⚠️ Algumas informações ainda estão sendo preenchidas")
 
+        # Ordenar e formatar
         resultados = resultados.sort_values(by=["Onda", "NOME"], ascending=[True, True])
+        resultados = resultados.drop(columns=["Placa", "ID Driver"])
 
-        # Oculta colunas da visualização
-        colunas_ocultas = ["Placa", "ID Driver"]
-        resultados = resultados.drop(columns=colunas_ocultas)
-
+        # Estilização
         def cor_onda(row):
             onda = row["Onda"].strip().lower()
-            cor = ""
-            if onda == "1º onda":
-                cor = "background-color: #FF0101"
-            elif onda == "2º onda":
-                cor = "background-color: #E5C12E"
-            elif onda == "3º onda":
-                cor = "background-color: #378137"
-            elif "última" in onda or "4º" in onda:
-                cor = "background-color: #215ebc"
-            return [cor if col == "Onda" else "" for col in resultados.columns]
+            if onda == "1º onda": return "#FF0101"
+            elif onda == "2º onda": return "#E5C12E"
+            elif onda == "3º onda": return "#378137"
+            elif "última" in onda or "4º" in onda: return "#215ebc"
+            return ""
 
-        def estilizar_colunas(val):
-            if val.strip() == "":
-                return "background-color: #f8d7da"
-            return "background-color: #444444; color: white"
-
-        styled_df = (
-            resultados.style
-            .apply(cor_onda, axis=1)
-            .applymap(estilizar_colunas, subset=["Gaiola", "Cidades", "Bairros"])
+        styled_df = resultados.style \
+            .apply(lambda x: ['background: ' + cor_onda(x) if x.name == "Onda" else '' for x in x], axis=0) \
+            .applymap(lambda x: 'background-color: #f8d7da' if x.strip() == "" else "background-color: #444444; color: white", 
+                    subset=["Gaiola", "Cidades", "Bairros"]) \
             .set_table_styles([
-                {'selector': 'th', 'props': [('background-color', '#000000'), ('color', 'white'), ('font-weight', 'bold'), ('text-align', 'center')]},
-                {'selector': 'td', 'props': [('text-align', 'center'), ('padding', '8px')]}
-            ])
+                {'selector': 'th', 'props': [('background-color', '#000000'), ('color', 'white'), 
+                                           ('font-weight', 'bold'), ('text-align', 'center')]},
+                {'selector': 'td', 'props': [('text-align', 'center'), ('padding', '8px')]},
+                {'selector': '', 'props': [('border', '1px solid #444')]}
+            ]) \
             .hide(axis="index")
-        )
 
+        # Exibir tabela estilizada
         st.markdown("""
             <style>
-                table {
-                    border-collapse: separate;
-                    border-spacing: 0;
-                    border: 1px solid #444;
+                .dataframe {
                     border-radius: 10px;
                     overflow: hidden;
                     font-family: 'Segoe UI', sans-serif;
-                    font-size: 14px;
-                    color: white;
                 }
                 th, td {
-                    padding: 10px;
+                    padding: 12px !important;
                 }
             </style>
         """, unsafe_allow_html=True)
@@ -184,10 +203,11 @@ try:
         st.write(styled_df.to_html(escape=False), unsafe_allow_html=True)
 
     else:
-        st.warning("Nenhum motorista encontrado com os critérios informados.")
+        st.warning("❌ Nenhum motorista encontrado com os critérios informados")
 
 except Exception as e:
-    st.error(f"Erro ao acessar a planilha: {e}") 
+    st.error(f"⛔ Erro ao acessar a planilha: {str(e)}") 
 
+# Rodapé
 st.markdown("---")
 st.caption("**Desenvolvido por Kayo Soares - LPA 03**")
