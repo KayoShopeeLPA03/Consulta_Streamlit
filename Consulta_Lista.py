@@ -6,7 +6,7 @@ import os
 
 # Configuração da página
 st.set_page_config(
-    page_title="Consulta de Motoristas - Shopee", 
+    page_title="Consulta de Motoristas - Shopee",
     page_icon="🚗",
     layout="centered"
 )
@@ -34,7 +34,7 @@ with col1:
 with col2:
     st.markdown("<h1 style='color:#f26c2d;'>Consulta de Motoristas - Shopee</h1>", unsafe_allow_html=True)
 
-# Caminhos
+# Parâmetros e cache
 file_name = "teste-motoristas-4f5250c96818.json"
 backup_path = "dados_cache.csv"
 Scopes = [
@@ -42,109 +42,96 @@ Scopes = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-# Atualizar manual
+# Botão de atualização manual
 if st.button("🔄 Atualizar dados"):
     st.cache_data.clear()
     st.rerun()
 
-@st.cache_data(ttl=60)
-def carregar_dados():
-    credencial = ServiceAccountCredentials.from_json_keyfile_name(file_name, scopes=Scopes)
-    gc = gspread.authorize(credencial)
-    planilha = gc.open("PROGRAMAÇÃO FROTA - Belem - LPA-02")
-    aba = planilha.worksheet("Programação")
-    dados = aba.get_all_values()[2:]
-    df = pd.DataFrame(dados[1:], columns=dados[0])
-    df.to_csv(backup_path, index=False)  # backup local
-    return df
-
-# Tenta carregar dados
-try:
-    df = carregar_dados()
-except Exception as e:
-    st.warning("⚠️ Falha na API do Google Sheets. Dados carregados do backup local.")
-    if os.path.exists(backup_path):
-        df = pd.read_csv(backup_path)
-    else:
-        st.error("⛔ Sem conexão e sem backup local disponível.")
-        st.stop()
-
-# Colunas
-colunas_para_filtro = ["NOME", "ID Driver", "Placa"]
-colunas_para_exibir = ["NOME", "Data Exp.", "Cidades", "Bairros", "Onda", "Gaiola"]
-colunas_necessarias = colunas_para_filtro + [c for c in colunas_para_exibir if c not in colunas_para_filtro]
-
-# Verifica estrutura
-for col in colunas_necessarias:
-    if col not in df.columns:
-        st.error(f"Coluna ausente: {col}")
-        st.stop()
-
-# Checagem de preenchimento
-df_teste = df[["NOME", "Cidades", "Bairros", "Onda", "Gaiola"]].replace("", None)
-if df_teste.isnull().any().any():
-    st.warning("🚧 A planilha ainda está sendo preenchida. Volte mais tarde.")
-    st.stop()
-
-# Preparar dados
-df_filtrado = df[colunas_necessarias].fillna("").astype(str)
-
-# Filtros
-if "nome_busca" not in st.session_state:
-    st.session_state.nome_busca = ""
-if "id_busca" not in st.session_state:
-    st.session_state.id_busca = ""
-if "placa_busca" not in st.session_state:
-    st.session_state.placa_busca = ""
-if "liberar_consulta" not in st.session_state:
-    st.session_state.liberar_consulta = False
+# Session state inicial
+for key in ["nome_busca", "id_busca", "placa_busca", "liberar_consulta"]:
+    if key not in st.session_state:
+        st.session_state[key] = "" if key != "liberar_consulta" else False
 
 # Botão limpar
 if st.button("🧹 Limpar filtros"):
-    st.session_state.nome_busca = ""
-    st.session_state.id_busca = ""
-    st.session_state.placa_busca = ""
+    for k in ["nome_busca", "id_busca", "placa_busca"]:
+        st.session_state[k] = ""
     st.session_state.liberar_consulta = False
     st.rerun()
 
-# Inputs
-nome_busca = st.text_input("🔎 Buscar por NOME:", value=st.session_state.nome_busca).strip().upper()
-st.session_state.nome_busca = nome_busca
+# Campos de busca
+st.session_state.nome_busca = st.text_input("🔎 Buscar por NOME:", value=st.session_state.nome_busca).strip().upper()
+st.session_state.id_busca = st.text_input("🆔 Buscar por ID:", value=st.session_state.id_busca).strip()
+st.session_state.placa_busca = st.text_input("🚗 Buscar por PLACA:", value=st.session_state.placa_busca).strip().upper()
 
-id_busca = st.text_input("🆔 Buscar por ID:", value=st.session_state.id_busca).strip()
-st.session_state.id_busca = id_busca
-
-placa_busca = st.text_input("🚗 Buscar por PLACA:", value=st.session_state.placa_busca).strip().upper()
-st.session_state.placa_busca = placa_busca
-
-# Toggle
+# Botão de liberação
 btn_label = "🔒 Bloquear Consulta" if st.session_state.liberar_consulta else "🔓 Liberar Consulta"
 if st.button(btn_label, use_container_width=True):
     st.session_state.liberar_consulta = not st.session_state.liberar_consulta
     st.rerun()
 
-# Liberação
-if st.session_state.liberar_consulta:
-    st.success("🔓 Consulta liberada")
-else:
-    st.warning("🔒 Consulta bloqueada")
+# Só carrega dados se estiver liberado
+if not st.session_state.liberar_consulta:
+    st.warning("🔒 Consulta bloqueada. Clique no botão acima para liberar.")
     st.stop()
 
-# Filtro em dados
-resultados = df_filtrado.copy()
-if nome_busca:
-    resultados = resultados[resultados["NOME"].str.upper().str.contains(nome_busca)]
-if id_busca:
-    resultados = resultados[resultados["ID Driver"].str.contains(id_busca)]
-if placa_busca:
-    resultados = resultados[resultados["Placa"].str.upper().str.contains(placa_busca)]
+# Função cacheada de carregamento
+@st.cache_data(ttl=300)  # cache por 5 minutos
+def carregar_dados():
+    cred = ServiceAccountCredentials.from_json_keyfile_name(file_name, scopes=Scopes)
+    gc = gspread.authorize(cred)
+    planilha = gc.open("PROGRAMAÇÃO FROTA - Belem - LPA-02")
+    aba = planilha.worksheet("Programação")
+    dados = aba.get_all_values()[2:]
+    df = pd.DataFrame(dados[1:], columns=dados[0])
+    df.to_csv(backup_path, index=False)
+    return df
 
-# Resultado
-if not resultados.empty:
-    st.success(f"✅ {len(resultados)} resultado(s) encontrado(s).")
+# Carregando dados
+try:
+    df = carregar_dados()
+except Exception:
+    st.warning("⚠️ Falha na API do Google Sheets. Dados carregados do backup local.")
+    if os.path.exists(backup_path):
+        df = pd.read_csv(backup_path)
+    else:
+        st.error("⛔ Sem conexão e sem backup disponível.")
+        st.stop()
 
-    col_verif = ["Placa", "Cidades", "Bairros", "Onda", "Gaiola"]
-    if resultados[col_verif].isin(["", None]).any().any():
+# Valida colunas
+col_filtro = ["NOME", "ID Driver", "Placa"]
+col_exibir = ["NOME", "Data Exp.", "Cidades", "Bairros", "Onda", "Gaiola"]
+col_necessarias = col_filtro + [c for c in col_exibir if c not in col_filtro]
+
+for col in col_necessarias:
+    if col not in df.columns:
+        st.error(f"Coluna ausente: {col}")
+        st.stop()
+
+# Verifica preenchimento essencial
+if df[["NOME", "Cidades", "Bairros", "Onda", "Gaiola"]].replace("", None).isnull().any().any():
+    st.warning("🚧 Planilha ainda sendo preenchida.")
+    st.stop()
+
+# Preparar e filtrar
+df = df[col_necessarias].fillna("").astype(str)
+df = df[df["NOME"] != ""]
+resultados = df.copy()
+
+if st.session_state.nome_busca:
+    resultados = resultados[resultados["NOME"].str.upper().str.contains(st.session_state.nome_busca)]
+if st.session_state.id_busca:
+    resultados = resultados[resultados["ID Driver"].str.contains(st.session_state.id_busca)]
+if st.session_state.placa_busca:
+    resultados = resultados[resultados["Placa"].str.upper().str.contains(st.session_state.placa_busca)]
+
+# Exibir resultados
+if resultados.empty:
+    st.warning("❌ Nenhum motorista encontrado.")
+else:
+    st.success(f"✅ {len(resultados)} motorista(s) encontrado(s).")
+
+    if resultados[["Placa", "Cidades", "Bairros", "Onda", "Gaiola"]].isin(["", None]).any().any():
         st.warning("⚠️ Algumas informações ainda estão sendo preenchidas.")
 
     resultados = resultados.sort_values(by=["Onda", "NOME"]).drop(columns=["Placa", "ID Driver"])
@@ -159,7 +146,7 @@ if not resultados.empty:
 
     styled_df = resultados.style \
         .applymap(estilo_onda, subset=["Onda"]) \
-        .applymap(lambda x: 'background-color: #f8d7da' if x.strip() == "" else "background-color: #444444; color: white", 
+        .applymap(lambda x: 'background-color: #f8d7da' if x.strip() == "" else "background-color: #444444; color: white",
                   subset=["Gaiola", "Cidades", "Bairros"]) \
         .set_table_styles([
             {'selector': 'th', 'props': [('background-color', '#000000'), ('color', 'white'), ('font-weight', 'bold'), ('text-align', 'center')]},
@@ -180,8 +167,6 @@ if not resultados.empty:
     """, unsafe_allow_html=True)
 
     st.write(styled_df.to_html(escape=False), unsafe_allow_html=True)
-else:
-    st.warning("❌ Nenhum motorista encontrado com os critérios informados.")
 
 # Rodapé
 st.markdown("---")
