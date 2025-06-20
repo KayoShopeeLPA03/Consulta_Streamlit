@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # Detectar tema escuro ou claro
-if st.get_option("theme.base") == "light":
+if st.get_option("theme.base") == "Light":
     texto_cor = "#000000"
     fundo_input = "#ffffff"
     cor_borda = "#f26c2d"
