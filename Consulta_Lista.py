@@ -11,19 +11,29 @@ st.set_page_config(
     layout="centered"
 )
 
-# Estilos
-st.markdown("""
+# Detectar tema escuro ou claro
+if st.get_option("theme.base") == "light":
+    texto_cor = "#000000"
+    fundo_input = "#ffffff"
+    cor_borda = "#f26c2d"
+else:
+    texto_cor = "#ffffff"
+    fundo_input = "#333333"
+    cor_borda = "#f26c2d"
+
+# Estilos adaptáveis
+st.markdown(f"""
     <style>
-        body, .stApp { background-color: #2A2A2F; color: #f26c2d; }
-        .stTextInput > div > div > input {
-            background-color: #333; color: white; border: 1px solid #f26c2d;
-        }
-        .stButton>button {
-            border: 1px solid #f26c2d; color: white;
-        }
-        .stButton>button:hover {
+        body, .stApp {{ background-color: #2A2A2F; color: {texto_cor}; }}
+        .stTextInput > div > div > input {{
+            background-color: {fundo_input}; color: {texto_cor}; border: 1px solid {cor_borda};
+        }}
+        .stButton>button {{
+            border: 1px solid {cor_borda}; color: {texto_cor};
+        }}
+        .stButton>button:hover {{
             background-color: #3a3a3a;
-        }
+        }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -32,7 +42,7 @@ col1, col2 = st.columns([1, 8])
 with col1:
     st.image("unnamed.png", width=150)
 with col2:
-    st.markdown("<h1 style='color:#f26c2d;'>Consulta de Motoristas - Shopee</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color:{cor_borda};'>Consulta de Motoristas - Shopee</h1>", unsafe_allow_html=True)
 
 # Parâmetros e cache
 file_name = "teste-motoristas-4f5250c96818.json"
@@ -142,14 +152,14 @@ else:
         elif onda == "2º onda": return "background-color: #E5C12E; color: white"
         elif onda == "3º onda": return "background-color: #378137; color: white"
         elif "última" in onda or "4º" in onda: return "background-color: #215ebc; color: white"
-        return "background-color: #444444; color: white"
+        return f"background-color: #444444; color: {texto_cor}"
 
     styled_df = resultados.style \
         .applymap(estilo_onda, subset=["Onda"]) \
-        .applymap(lambda x: 'background-color: #f8d7da' if x.strip() == "" else "background-color: #444444; color: white",
+        .applymap(lambda x: 'background-color: #f8d7da' if x.strip() == "" else f"background-color: #444444; color: {texto_cor}",
                   subset=["Gaiola", "Cidades", "Bairros"]) \
         .set_table_styles([
-            {'selector': 'th', 'props': [('background-color', '#000000'), ('color', 'white'), ('font-weight', 'bold'), ('text-align', 'center')]},
+            {'selector': 'th', 'props': [('background-color', '#000000'), ('color', texto_cor), ('font-weight', 'bold'), ('text-align', 'center')]},
             {'selector': 'td', 'props': [('text-align', 'center'), ('padding', '8px')]},
             {'selector': '', 'props': [('border', '1px solid #444')]}
         ]) \
