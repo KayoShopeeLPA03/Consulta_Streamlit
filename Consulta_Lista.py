@@ -181,3 +181,8 @@ else:
 # Rodapé
 st.markdown("---")
 st.caption("**Desenvolvido por Kayo Soares - LPA 03**")
+
+
+
+
+
