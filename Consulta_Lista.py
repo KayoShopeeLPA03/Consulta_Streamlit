@@ -88,9 +88,6 @@ with col1:
 with col2:
     st.markdown(f"<h1 style='color:{cor_borda};'>Consulta de Motoristas - Shopee</h1>", unsafe_allow_html=True)
 
-# Carimbo de build para confirmar atualização
-st.caption(f"Build: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
 # ==============================
 # Parâmetros e cache
 # ==============================
@@ -349,5 +346,6 @@ with tab2:
 # Rodapé
 st.markdown("---")
 st.caption("**Desenvolvido por Kayo Soares - LPA 03**")
+
 
 
