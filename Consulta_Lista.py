@@ -1,13 +1,10 @@
-import streamlit as st
+Bom dia, import streamlit as st
 import gspread
 import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
 import os
-from typing import List, Dict, Set
 
-# ==============================
 # Configuração da página
-# ==============================
 st.set_page_config(
     page_title="Consulta de Motoristas - Shopee",
     page_icon="🚗",
@@ -47,9 +44,7 @@ with col1:
 with col2:
     st.markdown(f"<h1 style='color:{cor_borda};'>Consulta de Motoristas - Shopee</h1>", unsafe_allow_html=True)
 
-# ==============================
 # Parâmetros e cache
-# ==============================
 file_name = "teste-motoristas-4f5250c96818.json"
 backup_path = "dados_cache.csv"
 Scopes = [
@@ -57,59 +52,7 @@ Scopes = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-# ------------------------------
-# Utilidades de normalização
-# ------------------------------
-# Mapeia possíveis nomes/variações de cabeçalho para um nome padrão
-COL_ALIASES: Dict[str, Set[str]] = {
-    "NOME": {"NOME", "Nome", "nome"},
-    "ID Driver": {"ID Driver", "IDDriver", "ID", "ID DRIVER", "Id Driver", "id driver"},
-    "Placa": {"Placa", "PLACA", "placa"},
-    "Data Exp.": {"Data Exp.", "Data Exp", "DATA EXP.", "DATA EXP", "DataExp", "data exp.", "data exp"},
-    "Cidades": {"Cidades", "Cidade", "cidades", "cidade"},
-    "Bairros": {"Bairros", "Bairro", "bairros", "bairro"},
-    "Onda": {"Onda", "onda", "ONDA"},
-    "Gaiola": {"Gaiola", "GAIOLA", "gaiola"},
-}
-
-# Conjunto mínimo para detectar o cabeçalho (pode ampliar se quiser)
-REQUIRED_HEADER_MIN: Set[str] = {"NOME", "ID Driver", "Placa"}
-
-def _normalize_header_names(cols: List[str]) -> List[str]:
-    """Renomeia colunas conforme o dicionário de aliases."""
-    out = []
-    for c in cols:
-        c_clean = str(c).strip()
-        mapped = None
-        for target, aliases in COL_ALIASES.items():
-            if c_clean in aliases:
-                mapped = target
-                break
-        out.append(mapped if mapped else c_clean)
-    return out
-
-def _find_header_index(rows: List[List[str]], search_rows: int = 20) -> int:
-    """
-    Encontra a linha do cabeçalho nas primeiras `search_rows` linhas
-    procurando as colunas mínimas obrigatórias (após normalização).
-    """
-    for i, row in enumerate(rows[:search_rows]):
-        norm = set(_normalize_header_names([str(c).strip() for c in row]))
-        if REQUIRED_HEADER_MIN.issubset(norm):
-            return i
-    return -1
-
-def _normalize_gaiola(series: pd.Series) -> pd.Series:
-    """Padroniza valores de Gaiola, convertendo 'NS-1' == 'NS1' e limpando espaços."""
-    return (
-        series.astype(str)
-              .str.strip()
-              .str.replace(r"\s*-\s*", "", regex=True)
-    )
-
-# ------------------------------
 # Botão de atualização manual
-# ------------------------------
 if st.button("🔄 Atualizar dados"):
     st.cache_data.clear()
     st.rerun()
@@ -142,136 +85,85 @@ if not st.session_state.liberar_consulta:
     st.warning("🔒 Consulta bloqueada. Clique no botão acima para liberar.")
     st.stop()
 
-# ==============================
-# Carregamento de dados (dinâmico + backup)
-# ==============================
+# Função cacheada de carregamento
 @st.cache_data(ttl=300)  # cache por 5 minutos
-def carregar_dados() -> pd.DataFrame:
+def carregar_dados():
     cred = ServiceAccountCredentials.from_json_keyfile_name(file_name, scopes=Scopes)
     gc = gspread.authorize(cred)
     planilha = gc.open("PROGRAMAÇÃO FROTA - Belem - LPA-02")
     aba = planilha.worksheet("Programação")
-
-    raw = aba.get_all_values()  # todas as linhas
-    if not raw or len(raw) == 0:
-        raise ValueError("Planilha vazia.")
-
-    # Encontrar a linha do cabeçalho
-    header_idx = _find_header_index(raw, search_rows=20)
-    if header_idx < 0:
-        raise ValueError("Não encontrei o cabeçalho com as colunas obrigatórias (NOME, ID Driver, Placa).")
-
-    # Cabeçalho normalizado
-    header_original = [str(c).strip() for c in raw[header_idx]]
-    header = _normalize_header_names(header_original)
-
-    # Corpo de dados (linhas após o cabeçalho)
-    data = raw[header_idx + 1:]
-    # Remove linhas totalmente vazias
-    data = [r for r in data if any(str(c).strip() for c in r)]
-
-    # Ajusta o comprimento das linhas ao tamanho do cabeçalho
-    width = len(header)
-    data = [r[:width] + [""] * (width - len(r)) if len(r) < width else r[:width] for r in data]
-
-    df = pd.DataFrame(data, columns=header)
-
-    # Normalizações
-    df.columns = [c.strip() for c in df.columns]
-    for c in df.columns:
-        df[c] = df[c].astype(str).str.strip()
-
-    # Tratar Gaiola
-    if "Gaiola" in df.columns:
-        df["Gaiola"] = _normalize_gaiola(df["Gaiola"])
-
-    # Salva backup local
-    df.to_csv(backup_path, index=False, encoding="utf-8")
+    dados = aba.get_all_values()[3:]
+    df = pd.DataFrame(dados[1:], columns=dados[0])
+    df.to_csv(backup_path, index=False)
     return df
 
 # Carregando dados
 try:
     df = carregar_dados()
-except Exception as e:
-    st.warning(f"⚠️ Falha na API do Google Sheets ({e}). Carregando do backup local.")
+except Exception:
+    st.warning("⚠️ Falha na API do Google Sheets. Dados carregados do backup local.")
     if os.path.exists(backup_path):
-        df = pd.read_csv(backup_path, dtype=str).fillna("")
+        df = pd.read_csv(backup_path)
     else:
         st.error("⛔ Sem conexão e sem backup disponível.")
         st.stop()
 
-# ==============================
-# Validação e filtros
-# ==============================
+# Valida colunas
 col_filtro = ["NOME", "ID Driver", "Placa"]
 col_exibir = ["NOME", "Data Exp.", "Cidades", "Bairros", "Onda", "Gaiola"]
 col_necessarias = col_filtro + [c for c in col_exibir if c not in col_filtro]
 
-# Checa colunas necessárias
 for col in col_necessarias:
     if col not in df.columns:
         st.error(f"Coluna ausente: {col}")
         st.stop()
 
-# Remove linhas com NOME vazio e normaliza strings
-df = df[col_necessarias].fillna("").astype(str)
-df = df[df["NOME"].str.strip() != ""]
-
 # Verifica preenchimento essencial
-essential_cols = ["NOME", "Cidades", "Bairros", "Onda", "Gaiola"]
-if df[essential_cols].applymap(lambda x: str(x).strip() == "").any().any():
+if df[["NOME", "Cidades", "Bairros", "Onda", "Gaiola"]].replace("", None).isnull().any().any():
     st.warning("🚧 Planilha ainda sendo preenchida.")
-    # Você pode optar por não dar stop aqui, mas manteremos como no original
     st.stop()
 
-# Aplicar filtros
+# Preparar e filtrar
+df = df[col_necessarias].fillna("").astype(str)
+df = df[df["NOME"] != ""]
 resultados = df.copy()
-if st.session_state.nome_busca:
-    resultados = resultados[resultados["NOME"].str.upper().str.contains(st.session_state.nome_busca, na=False)]
-if st.session_state.id_busca:
-    resultados = resultados[resultados["ID Driver"].str.contains(st.session_state.id_busca, na=False)]
-if st.session_state.placa_busca:
-    resultados = resultados[resultados["Placa"].str.upper().str.contains(st.session_state.placa_busca, na=False)]
 
-# ==============================
+if st.session_state.nome_busca:
+    resultados = resultados[resultados["NOME"].str.upper().str.contains(st.session_state.nome_busca)]
+if st.session_state.id_busca:
+    resultados = resultados[resultados["ID Driver"].str.contains(st.session_state.id_busca)]
+if st.session_state.placa_busca:
+    resultados = resultados[resultados["Placa"].str.upper().str.contains(st.session_state.placa_busca)]
+
 # Exibir resultados
-# ==============================
 if resultados.empty:
     st.warning("❌ Nenhum motorista encontrado.")
 else:
     st.success(f"✅ {len(resultados)} motorista(s) encontrado(s).")
 
-    # Aviso se houver campos em branco nos principais
-    if resultados[["Placa", "Cidades", "Bairros", "Onda", "Gaiola"]].applymap(lambda x: str(x).strip() == "").any().any():
+    if resultados[["Placa", "Cidades", "Bairros", "Onda", "Gaiola"]].isin(["", None]).any().any():
         st.warning("⚠️ Algumas informações ainda estão sendo preenchidas.")
 
-    # Ordenação e colunas exibidas
     resultados = resultados.sort_values(by=["Onda", "NOME"]).drop(columns=["Placa", "ID Driver"])
 
-    def estilo_onda(val: str):
-        onda = str(val).strip().lower()
-        if onda == "1º onda" or onda == "1ª onda" or onda == "1a onda":
-            return "background-color: #B22222; color: white"
-        elif onda == "2º onda" or onda == "2ª onda" or onda == "2a onda":
-            return "background-color: #E5C12E; color: white"
-        elif onda == "3º onda" or onda == "3ª onda" or onda == "3a onda":
-            return "background-color: #378137; color: white"
-        elif "última" in onda or "4º" in onda or "4ª" in onda or "4a" in onda:
-            return "background-color: #215ebc; color: white"
+    def estilo_onda(val):
+        onda = val.strip().lower()
+        if onda == "1º onda": return "background-color: #B22222; color: white"
+        elif onda == "2º onda": return "background-color: #E5C12E; color: white"
+        elif onda == "3º onda": return "background-color: #378137; color: white"
+        elif "última" in onda or "4º" in onda: return "background-color: #215ebc; color: white"
         return f"background-color: #444444; color: {texto_cor}"
 
-    styled_df = (
-        resultados.style
-        .applymap(estilo_onda, subset=["Onda"])
-        .applymap(lambda x: 'background-color: #f8d7da' if str(x).strip() == "" else f"background-color: #444444; color: {texto_cor}",
-                  subset=["Gaiola", "Cidades", "Bairros"])
+    styled_df = resultados.style \
+        .applymap(estilo_onda, subset=["Onda"]) \
+        .applymap(lambda x: 'background-color: #f8d7da' if x.strip() == "" else f"background-color: #444444; color: {texto_cor}",
+                  subset=["Gaiola", "Cidades", "Bairros"]) \
         .set_table_styles([
             {'selector': 'th', 'props': [('background-color', '#000000'), ('color', texto_cor), ('font-weight', 'bold'), ('text-align', 'center')]},
             {'selector': 'td', 'props': [('text-align', 'center'), ('padding', '8px')]},
             {'selector': '', 'props': [('border', '1px solid #444')]}
-        ])
+        ]) \
         .hide(axis="index")
-    )
 
     st.markdown("""
         <style>
@@ -284,7 +176,6 @@ else:
         </style>
     """, unsafe_allow_html=True)
 
-    # Render do HTML do Styler
     st.write(styled_df.to_html(escape=False), unsafe_allow_html=True)
 
 # Rodapé
