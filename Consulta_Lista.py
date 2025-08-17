@@ -92,7 +92,7 @@ def carregar_dados():
     gc = gspread.authorize(cred)
     planilha = gc.open("PROGRAMAÇÃO FROTA - Belem - LPA-02")
     aba = planilha.worksheet("Programação")
-    dados = aba.get_all_values()[3:]
+    dados = aba.get_all_values()[5:]
     df = pd.DataFrame(dados[1:], columns=dados[0])
     df.to_csv(backup_path, index=False)
     return df
@@ -181,4 +181,5 @@ else:
 # Rodapé
 st.markdown("---")
 st.caption("**Desenvolvido por Kayo Soares - LPA 03**")
+
 
