@@ -201,7 +201,7 @@ else:
         if onda == "1º onda": return "background-color: #B22222; color: white"
         elif onda == "2º onda": return "background-color: #E5C12E; color: white"
         elif onda == "3º onda": return "background-color: #378137; color: white"
-        elif "última" in onda or "Carregamento PM" in onda: return "background-color: #215ebc; color: white"
+        elif "Carregamento PM" in onda or "Carregamento PM" in onda: return "background-color: #215ebc; color: white"
         return f"background-color: #444444; color: {texto_cor}"
 
     styled_df = resultados.style \
@@ -231,4 +231,5 @@ else:
 # Rodapé
 st.markdown("---")
 st.caption("**Desenvolvido por Kayo Soares - LPA 03**")
+
 
