@@ -85,16 +85,66 @@ if not st.session_state.liberar_consulta:
     st.warning("🔒 Consulta bloqueada. Clique no botão acima para liberar.")
     st.stop()
 
-# Função cacheada de carregamento
+# Helper: encontra a linha do cabeçalho procurando colunas obrigatórias (case-insensitive)
+def _find_header_index(rows, required_upper={"NOME", "ID DRIVER", "PLACA"}, search_rows=30):
+    for i, row in enumerate(rows[:search_rows]):
+        row_upper = {str(c).strip().upper() for c in row}
+        if required_upper.issubset(row_upper):
+            return i
+    raise ValueError(
+        "Não encontrei o cabeçalho com as colunas obrigatórias: " + ", ".join(sorted(required_upper))
+    )
+
 @st.cache_data(ttl=300)  # cache por 5 minutos
 def carregar_dados():
     cred = ServiceAccountCredentials.from_json_keyfile_name(file_name, scopes=Scopes)
     gc = gspread.authorize(cred)
     planilha = gc.open("PROGRAMAÇÃO FROTA - Belem - LPA-02")
     aba = planilha.worksheet("Programação")
-    dados = aba.get_all_values()[5:]
-    df = pd.DataFrame(dados[1:], columns=dados[0])
-    df.to_csv(backup_path, index=False)
+
+    raw = aba.get_all_values()  # pega tudo sem cortar
+    if not raw:
+        raise ValueError("Planilha vazia.")
+
+    # 1) Detecta dinamicamente a linha do cabeçalho
+    header_idx = _find_header_index(raw, required_upper={"NOME", "ID DRIVER", "PLACA"}, search_rows=30)
+
+    # 2) Define cabeçalho e corpo a partir dessa linha
+    header = [str(c).strip() for c in raw[header_idx]]
+    data = raw[header_idx + 1:]
+
+    # Remove linhas totalmente vazias
+    data = [r for r in data if any(str(c).strip() for c in r)]
+
+    # Garante mesmo número de colunas do cabeçalho
+    width = len(header)
+    data = [r[:width] + [""] * (width - len(r)) if len(r) < width else r[:width] for r in data]
+
+    df = pd.DataFrame(data, columns=header)
+
+    # 3) Normaliza nomes conhecidos para os canônicos usados no app
+    CANON = {
+        "NOME": "NOME",
+        "ID DRIVER": "ID Driver",
+        "PLACA": "Placa",
+        "DATA EXP.": "Data Exp.",
+        "CIDADES": "Cidades",
+        "BAIRROS": "Bairros",
+        "ONDA": "Onda",
+        "GAIOLA": "Gaiola",
+    }
+    df.columns = [CANON.get(c.strip().upper(), c.strip()) for c in df.columns]
+
+    # 4) Ajuste de Gaiola (trata NS-1 == NS1)
+    if "Gaiola" in df.columns:
+        df["Gaiola"] = (
+            df["Gaiola"].astype(str)
+                         .str.strip()
+                         .str.replace(r"\s*-\s*", "", regex=True)
+        )
+
+    # 5) Salva backup local
+    df.to_csv(backup_path, index=False, encoding="utf-8")
     return df
 
 # Carregando dados
@@ -181,5 +231,3 @@ else:
 # Rodapé
 st.markdown("---")
 st.caption("**Desenvolvido por Kayo Soares - LPA 03**")
-
-
