@@ -308,8 +308,6 @@ with tab2:
         if c in rotas.columns:
             rotas[c] = rotas[c].astype(str).str.strip()
 
-    st.subheader("Rotas Disponiveis")
-
     # Opções das listas
     ondas_opts2    = ["Todas"] + sorted([o for o in rotas["Onda"].dropna().unique() if o])
     cidades_opts2  = ["Todas"] + sorted([c for c in rotas["Cidades"].dropna().unique() if c])
@@ -351,4 +349,5 @@ with tab2:
 # Rodapé
 st.markdown("---")
 st.caption("**Desenvolvido por Kayo Soares - LPA 03**")
+
 
