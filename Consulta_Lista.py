@@ -1,4 +1,4 @@
-Bom dia, import streamlit as st
+import streamlit as st
 import gspread
 import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
@@ -181,3 +181,4 @@ else:
 # Rodapé
 st.markdown("---")
 st.caption("**Desenvolvido por Kayo Soares - LPA 03**")
+
